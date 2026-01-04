@@ -37,4 +37,4 @@
 
 /* getargs() prototype */
 void getargs(int, char *[]);
-int flagargs[NUMARGS];
+extern int flagargs[NUMARGS];
