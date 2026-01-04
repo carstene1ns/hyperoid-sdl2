@@ -17,9 +17,9 @@
  */
 
 /*
- * hyperoid.h 
+ * rand.h - random number function prototypes.
  */
 
 
-extern OBJ *CreateLetter( int cLetter, int nSize );
-extern int paused;
+void my_srand(long seed);
+unsigned long my_rand(unsigned long range);

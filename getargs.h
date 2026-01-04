@@ -17,9 +17,24 @@
  */
 
 /*
- * hyperoid.h 
+ * getargs.g - command line defines and prototypes.
  */
 
+/* Number of integer (flag) options */
+#define NUMARGS    10
 
-extern OBJ *CreateLetter( int cLetter, int nSize );
-extern int paused;
+/* Shortcut for accessing the values */
+#define ARG_FSCRN   flagargs[0]
+#define ARG_BENCH   flagargs[1]
+#define ARG_NOSND   flagargs[2]
+#define ARG_WIDTH   flagargs[3]
+#define ARG_HEIGHT  flagargs[4]
+#define ARG_JOYNUM  flagargs[5]
+#define ARG_JFIRE   flagargs[6]
+#define ARG_JSHIELD flagargs[7]
+#define ARG_JBOMB   flagargs[8]
+#define ARG_JLIST   flagargs[9]
+
+/* getargs() prototype */
+void getargs(int, char *[]);
+int flagargs[NUMARGS];

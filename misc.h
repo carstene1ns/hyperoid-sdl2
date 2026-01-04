@@ -1,15 +1,24 @@
-/*
- * HYPEROID.H - hyperoid internal header information
+/* 
+ * SDLRoids - An Astroids clone.
+ * 
+ * Copyright (c) 2000 David Hedbor <david@hedbor.org>
+ * 	based on xhyperoid by Russel Marks.
+ * 	xhyperoid is based on a Win16 game, Hyperoid by Edward Hutchins 
  *
- * Version: 1.1  Copyright (C) 1990,91 Hutchins Software
- *      This software is licenced under the GNU General Public Licence
- *      Please read the associated legal documentation
- * Author: Edward Hutchins
- * Revisions:
- * 2000 Mar 22 massively cut down to remove as much Windows
- *		and Pascal-ish bogosity as possible -rjm
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * 
  */
 
+/*
+ * misc.h - misc defines and prototypes.
+ */
 
 /* extra data types and defines */
 
@@ -29,16 +38,16 @@ typedef struct { int left,right,top,bottom; } RECT;
 #define PALETTE_SIZE 16
 typedef enum
 {
-	BLACK, DKGREY, GREY, WHITE,
-	DKRED, RED, DKGREEN, GREEN, DKBLUE, BLUE,
-	DKYELLOW, YELLOW, DKCYAN, CYAN, DKMAGENTA, MAGENTA
+  BLACK, DKGREY, GREY, WHITE,
+  DKRED, RED, DKGREEN, GREEN, DKBLUE, BLUE,
+  DKYELLOW, YELLOW, DKCYAN, CYAN, DKMAGENTA, MAGENTA
 } COLORS;
 
 enum
 {
-	KEY_F1, KEY_TAB, KEY_S,
-	KEY_LEFT, KEY_RIGHT, KEY_DOWN, KEY_UP,
-	KEY_SPACE, KEY_ESC
+  KEY_F1, KEY_TAB, KEY_S,
+  KEY_LEFT, KEY_RIGHT, KEY_DOWN, KEY_UP,
+  KEY_SPACE, KEY_ESC
 };
 
 /* degrees scaled to integer math */
@@ -48,16 +57,16 @@ enum
 
 /* object limits */
 #define MAX_PTS 8
-#define MAX_OBJS 100
+#define MAX_OBJS 200
 #define MAX_COORD 0x2000
 #define CLIP_COORD (MAX_COORD+300)
 
 /* timer stuff */
-#define DRAW_DELAY 50
-#define RESTART_DELAY_FRAMES 100
+#define FPS 50
+#define RESTART_DELAY_FRAMES 60
 
 /* restart modes */
-typedef enum { RESTART_GAME, RESTART_LEVEL, RESTART_NEXTLEVEL } RESTART_MODE;
+typedef enum { RESTART_GAME, RESTART_LEVEL, RESTART_NEXTLEVEL, RESTART_DEATH } RESTART_MODE;
 
 /* letter scaling */
 #define LETTER_MAX 256
@@ -68,32 +77,54 @@ typedef enum { RESTART_GAME, RESTART_LEVEL, RESTART_NEXTLEVEL } RESTART_MODE;
 /* list node */
 typedef struct tagNODE
 {
-	struct tagNODE  *npNext, *npPrev;
+  struct tagNODE  *npNext, *npPrev;
 } NODE;
 
 /* list header */
 typedef struct
 {
-	NODE *npHead, *npTail;
+  NODE *npHead, *npTail;
 } LIST;
 
 /* object descriptor */
 typedef struct
 {
-	NODE    Link;               /* for object list */
-	POINT   Pos;                /* position of center of object */
-	POINT   Vel;                /* velocity in logical units/update */
-	int     nMass;              /* mass of object */
-	int     nDir;               /* direction in degrees */
-	int     nSpin;              /* angular momentum degrees/update */
-	int     nCount;             /* used by different objects */
-	int     nDelay;             /* used by different objects */
-	BYTE    byColor;            /* palette color */
-	BYTE    byPts;              /* number of points in object */
-	POINT   Pts[MAX_PTS];       /* points making up an object */
-	POINT   Old[MAX_PTS];       /* last plotted location */
+  NODE    Link;               /* for object list */
+  POINT   Pos;                /* position of center of object */
+  POINT   Vel;                /* velocity in logical units/update */
+  int     nMass;              /* mass of object */
+  int     nDir;               /* direction in degrees */
+  int     nSpin;              /* angular momentum degrees/update */
+  int     nCount;             /* used by different objects */
+  int     nDelay;             /* used by different objects */
+  BYTE    byColor;            /* palette color */
+  BYTE    byPts;              /* number of points in object */
+  POINT   Pts[MAX_PTS];       /* points making up an object */
+  POINT   Old[MAX_PTS];       /* last plotted location */
 } OBJ;
 
+/* ship shield struct */
+typedef struct
+{
+  POINT   Pos;                /* position of center of object */
+  POINT   Old;		      /* old position of the object */
+  BYTE    byColor;            /* palette color */
+  int     Radius;             /* circle radius */
+} CIRCLE;
+
+typedef struct {
+  OBJ 	*Player;	/* The player object */
+  CIRCLE Shield;	/* The shield circle object */
+  int 	 isSafe;	/* 1 == shields are on, 0 = shields off */
+  int 	 Bombs;         /* Number of bombs left */
+  int    Guns;          /* Number of guns */
+  float  GunRange;      /* Gun range modified */
+  int    Score; 	/* Player Score */
+  int    LastLife;     /* Last score based extra life */
+  int    Shields;       /* Shield strength */
+  int    ExtraShields;  /* Bonus shield strength */
+} PLAYER;
+  
 
 /* inline macro functions */
 
@@ -138,3 +169,9 @@ typedef struct
 
 /* this seems to be what MulDiv does -rjm */
 #define MulDiv(x,y,z) ((x)*(y)/(z))
+
+extern void BreakRoid( OBJ *, OBJ * );
+extern void ExplodeBadguys( LIST * );
+extern void Explode( OBJ * );
+
+extern char *bindir;
