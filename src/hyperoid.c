@@ -1615,5 +1615,6 @@ int main(int argc,char *argv[])
   exit_sound();
   exit_graphics();
   if(bindir != NULL) free(bindir);
-  exit(0);
+
+  return 0;
 }

@@ -282,7 +282,7 @@ static inline void drawcircle(Sint16 x, Sint16 y, Sint32 r)
 #define SGN(a)		(((a)<0) ? -1 : 1)
 
 /* Draw an horizontal line in the current color */
-inline void draw_horzline(Sint16 x1, Sint16 x2, Sint32 y)
+static inline void draw_horzline(Sint16 x1, Sint16 x2, Sint32 y)
 {
   int i;
   if (x1 < x2) {
@@ -296,7 +296,7 @@ inline void draw_horzline(Sint16 x1, Sint16 x2, Sint32 y)
 }
 
 /* Draw an vertical line in the current color */
-inline void draw_vertline(Sint16 x, Sint16 y1, Sint32 y2)
+static inline void draw_vertline(Sint16 x, Sint16 y1, Sint32 y2)
 {
   int i;
   if (y1 < y2) {
@@ -310,7 +310,7 @@ inline void draw_vertline(Sint16 x, Sint16 y1, Sint32 y2)
 }
 
 /* Draw a line between two coordinates */
-inline void drawline(int x1,int y1,int x2,int y2)
+static inline void drawline(int x1,int y1,int x2,int y2)
 {
   int d, x, y, ax, ay, sx, sy, dx, dy;
   if((dx = x2 - x1) == 0) { /* vertical line */
@@ -358,7 +358,7 @@ inline void drawline(int x1,int y1,int x2,int y2)
   }
 }
 
-inline void MoveTo(int x,int y)
+static inline void MoveTo(int x,int y)
 {
   current_x = convx(x);
   current_y = convy(y);
@@ -366,12 +366,12 @@ inline void MoveTo(int x,int y)
 
 
 /* Scaling blit function by Greg Velichansky */
-inline Uint32 ifloor(Uint32 i)
+static inline Uint32 ifloor(Uint32 i)
 {
   return i & 0xFFFF0000;
 }
 
-inline Uint32 iceil(Uint32 i)
+static inline Uint32 iceil(Uint32 i)
 {
   return (i & 0xFFFF) ? i : ifloor(i) + (1<<16);
 }
@@ -379,7 +379,7 @@ inline Uint32 iceil(Uint32 i)
 
 /* The most pedantic-a%& getpixel and putpixel ever, hopefully. */
 /* There may still be endianness bugs! These will be fixed after adequte testing. XXX XXX XXX */
-inline int SDL_GetPixel (SDL_Surface *f, Uint32 x, Uint32 y,
+static inline int SDL_GetPixel (SDL_Surface *f, Uint32 x, Uint32 y,
 			 Uint8 *r, Uint8 *g, Uint8 *b)
 {
   /*const Uint32 mask[] = {0x0, 0xff, 0xffff, 0xffffff, 0xffffffff};*/
@@ -540,7 +540,7 @@ inline void RedrawObject() {
 }
 
 static int is_poly=0;
-inline void LineTo(int x,int y)
+static inline void LineTo(int x,int y)
 {
   x = convx(x); y = convy(y);
   drawline(current_x,current_y,x,y);
