@@ -1,118 +1,124 @@
-//
-// HYPEROID - a neato game
-//
-// Version: 1.1  Copyright (C) 1990,91 Hutchins Software
-//      This software is licenced under the GNU General Public Licence
-//      Please read the associated legal documentation
-// Author: Edward Hutchins
-// Internet: eah1@cec1.wustl.edu
-// USNail: c/o Edward Hutchins, 63 Ridgemoor Dr., Clayton, MO, 63105
-// Revisions:
-// 10/31/91 made game better/harder - Ed.
-//
-// Music: R.E.M./The Cure/Ministry/Front 242/The Smiths/New Order/Hendrix...
-// Beers: Bass Ale, Augsberger Dark
-//
+/*
+ * HYPEROID - a neato game
+ *
+ * Version: 1.1  Copyright (C) 1990,91 Hutchins Software
+ *      This software is licenced under the GNU General Public Licence
+ *      Please read the associated legal documentation
+ * Author: Edward Hutchins
+ * Internet: eah1@cec1.wustl.edu
+ * USNail: c/o Edward Hutchins, 63 Ridgemoor Dr., Clayton, MO, 63105
+ * Revisions:
+ * 10/31/91 made game better/harder - Ed.
+ *
+ * Music: R.E.M./The Cure/Ministry/Front 242/The Smiths/New Order/Hendrix...
+ * Beers: Bass Ale, Augsberger Dark
+ */
+
+/* Unix/Linux conversion by Russell Marks, 2000
+ *
+ * I think I'll add Rush to the Music list :-)
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <math.h>
+#include <time.h>
+#include <limits.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#include "misc.h"
+#include "roidsupp.h"
+#include "sound.h"
+#include "graphics.h"
 
 #include "hyperoid.h"
 
-//
-// imports
-//
 
-IMPORT POINT        LetterPart[] FROM( roidsupp.c );
-IMPORT NPSTR        szNumberDesc[] FROM( roidsupp.c );
-IMPORT NPSTR        szLetterDesc[] FROM( roidsupp.c );
+static int palrgb[16*3]=
+  {
+  0,0,0,	128,128,128,
+  192,192,192,	255,255,255,
+  128,0,0,	255,0,0,
+  0,128,0,	0,255,0,
+  0,0,128,	0,0,255,
+  128,128,0,	255,255,0,
+  0,128,128,	0,255,255,
+  128,0,128,	255,0,255
+  };
 
-//
-// globals
-//
 
-GLOBAL CHAR         szAppName[32];
-GLOBAL HANDLE       hAppInst;
-GLOBAL HWND         hAppWnd;
-GLOBAL HPALETTE     hAppPalette;
-GLOBAL INT          nDrawDelay;
-GLOBAL INT          nLevel;
-GLOBAL INT          nSafe;
-GLOBAL INT          nShield;
-GLOBAL INT          nBomb;
-GLOBAL INT          nBadGuys;
-GLOBAL LONG         lScore;
-GLOBAL LONG         lLastLife;
-GLOBAL LONG         lHighScore;
-GLOBAL BOOL         bRestart;
-GLOBAL BOOL         bPaused;
-GLOBAL BOOL         bBW;
-GLOBAL INT          vkShld;
-GLOBAL INT          vkClkw;
-GLOBAL INT          vkCtrClkw;
-GLOBAL INT          vkThrst;
-GLOBAL INT          vkRvThrst;
-GLOBAL INT          vkFire;
-GLOBAL INT          vkBomb;
-GLOBAL NPOBJ        npPlayer;
-GLOBAL LIST         FreeList;
-GLOBAL LIST         RoidList;
-GLOBAL LIST         ShotList;
-GLOBAL LIST         FlameList;
-GLOBAL LIST         SpinnerList;
-GLOBAL LIST         HunterList;
-GLOBAL LIST         HunterShotList;
-GLOBAL LIST         SwarmerList;
-GLOBAL LIST         LetterList;
-GLOBAL LIST         BonusList;
-GLOBAL INT          nCos[DEGREE_SIZE];
-GLOBAL INT          nSin[DEGREE_SIZE];
-GLOBAL HPEN         hPen[PALETTE_SIZE];
-GLOBAL OBJ          Obj[MAX_OBJS];
-GLOBAL HBITMAP      hBitmap[IDB_MAX];
 
-//
-// locals
-//
+volatile int timer_flag=0;
 
-LOCAL DWORD         dwSeed;
-LOCAL INT           nScoreLen;
-LOCAL CHAR          szScore[40];
-LOCAL RECT          rectScoreClip;
-LOCAL RECT          rectShotClip;
-LOCAL POINT         Player[] =
-{ {0, 0}, {160, 150}, {0, 250}, {96, 150}, {0, 0} };
-LOCAL POINT         Spinner[] =
-{ {160, 150}, {224, 100}, {96, 100}, {32, 150}, {160, 150} };
-LOCAL POINT         Swarmer[] =
-{ {0, 100}, {64, 100}, {128, 100}, {192, 100}, {0, 100} };
-LOCAL POINT         Hunter[] =
+static int restart_timer_count=0;
+
+
+void sighandler(int foo)
+{
+timer_flag=1;
+}
+
+
+
+/* globals */
+
+int nDrawDelay,nLevel,nSafe,nShield,nBomb,nBadGuys;
+int lScore,lLastLife,lHighScore;
+int bRestart,bPaused;
+
+OBJ *npPlayer;
+LIST FreeList,RoidList,ShotList,FlameList,SpinnerList;
+LIST HunterList,HunterShotList,SwarmerList,LetterList,BonusList;
+int nCos[DEGREE_SIZE],nSin[DEGREE_SIZE];
+OBJ Obj[MAX_OBJS];
+
+
+/* locals */
+
+int dwSeed;
+static RECT          rectShotClip;
+static POINT         Player[] =
+	{ {0, 0}, {160, 150}, {0, 250}, {96, 150}, {0, 0} };
+static POINT         Spinner[] =
+	{ {160, 150}, {224, 100}, {96, 100}, {32, 150}, {160, 150} };
+static POINT         Swarmer[] =
+	{ {0, 100}, {64, 100}, {128, 100}, {192, 100}, {0, 100} };
+static POINT         Hunter[] =
 {
 	{160, 150}, {0, 250}, {192, 30}, {64, 30},
 	{0, 250}, {96, 150}, {128, 150}, {160, 150}
 };
-LOCAL POINT         Bonus[] =
-{ {0, 150}, {102, 150}, {205, 150}, {51, 150}, {154, 150}, {0, 150} };
+static POINT         Bonus[] =
+	{ {0, 150}, {102, 150}, {205, 150}, {51, 150}, {154, 150}, {0, 150} };
 
-//
-// KillBadGuy - kill off a badguy (made into a macro)
-//
+
+/* KillBadGuy - kill off a badguy (made into a macro) */
 
 #define KillBadGuy() \
-((--nBadGuys <= 0)?(SetRestart( RESTART_NEXTLEVEL ),TRUE):FALSE)
+	((--nBadGuys <= 0)?(SetRestart( RESTART_NEXTLEVEL ),TRUE):FALSE)
 
-//
-// arand - pseudorandom number from 0 to x-1 (thanks antman!)
-//
 
-INT NEAR PASCAL arand( INT x )
+/* arand - pseudorandom number from 0 to x-1 (thanks antman!) */
+
+/* XXX replace? - it's probably v. poor */
+
+int arand( int x )
 {
 	dwSeed = dwSeed * 0x343fd + 0x269ec3;
-	return( (INT)(((dwSeed >> 16) & 0x7fff) * x >> 15) );
+	return( (int)(((dwSeed >> 16) & 0x7fff) * x >> 15) );
 }
 
-//
-// AddHead - add an object to the head of a list
-//
 
-VOID NEAR PASCAL AddHead( NPLIST npList, NPNODE npNode )
+/* AddHead - add an object to the head of a list */
+
+void AddHead( LIST *npList, NODE *npNode )
 {
 	if (npList->npHead)
 	{
@@ -120,22 +126,21 @@ VOID NEAR PASCAL AddHead( NPLIST npList, NPNODE npNode )
 		npNode->npPrev = NULL;
 		npList->npHead = (npList->npHead->npPrev = npNode);
 	}
-	else // add to an empty list
+	else /* add to an empty list */
 	{
 		npList->npHead = npList->npTail = npNode;
 		npNode->npNext = npNode->npPrev = NULL;
 	}
 }
 
-//
-// RemHead - remove the first element in a list
-//
 
-NPNODE NEAR PASCAL RemHead( NPLIST npList )
+/* RemHead - remove the first element in a list */
+
+NODE *RemHead( LIST *npList )
 {
 	if (npList->npHead)
 	{
-		NPNODE npNode = npList->npHead;
+		NODE *npNode = npList->npHead;
 		if (npList->npTail != npNode)
 		{
 			npList->npHead = npNode->npNext;
@@ -147,11 +152,10 @@ NPNODE NEAR PASCAL RemHead( NPLIST npList )
 	else return( NULL );
 }
 
-//
-// Remove - remove an arbitrary element from a list
-//
 
-VOID NEAR PASCAL Remove( NPLIST npList, NPNODE npNode )
+/* Remove - remove an arbitrary element from a list */
+
+void Remove( LIST *npList, NODE *npNode )
 {
 	if (npNode->npPrev) npNode->npPrev->npNext = npNode->npNext;
 	else npList->npHead = npNode->npNext;
@@ -159,16 +163,15 @@ VOID NEAR PASCAL Remove( NPLIST npList, NPNODE npNode )
 	else npList->npTail = npNode->npPrev;
 }
 
-//
-// DrawObject - draw a single object
-//
 
-VOID NEAR PASCAL DrawObject( HDC hDC, NPOBJ npObj )
+/* DrawObject - draw a single object */
+
+void DrawObject( OBJ *npObj )
 {
-	INT             nCnt;
-	INT             nDir = (npObj->nDir += npObj->nSpin);
-	INT             x = (npObj->Pos.x += npObj->Vel.x);
-	INT             y = (npObj->Pos.y += npObj->Vel.y);
+	int             nCnt;
+	int             nDir = (npObj->nDir += npObj->nSpin);
+	int             x = (npObj->Pos.x += npObj->Vel.x);
+	int             y = (npObj->Pos.y += npObj->Vel.y);
 	POINT           Pts[MAX_PTS];
 
 	if (x < -CLIP_COORD) npObj->Pos.x = x = CLIP_COORD;
@@ -178,46 +181,45 @@ VOID NEAR PASCAL DrawObject( HDC hDC, NPOBJ npObj )
 
 	for (nCnt = npObj->byPts - 1; nCnt >= 0; --nCnt)
 	{
-		WORD wDeg = DEG( npObj->Pts[nCnt].x + nDir );
-		INT nLen = npObj->Pts[nCnt].y;
+		int wDeg = DEG( npObj->Pts[nCnt].x + nDir );
+		int nLen = npObj->Pts[nCnt].y;
 		Pts[nCnt].x = x + MULDEG( nLen, nCos[wDeg] );
 		Pts[nCnt].y = y + MULDEG( nLen, nSin[wDeg] );
 	}
 
 	if (npObj->byPts > 1)
 	{
-		SelectObject( hDC, hPen[BLACK] );
-		Polyline( hDC, npObj->Old, npObj->byPts );
+		set_colour(BLACK);
+		Polyline( npObj->Old, npObj->byPts );
 		if (npObj->nCount > 0)
 		{
-			SelectObject( hDC, hPen[npObj->byColor] );
-			Polyline( hDC, Pts, npObj->byPts );
+			set_colour(npObj->byColor);
+			Polyline( Pts, npObj->byPts );
 			for (nCnt = npObj->byPts - 1; nCnt >= 0; --nCnt)
 				npObj->Old[nCnt] = Pts[nCnt];
 		}
 	}
-	else // just a point
+	else /* just a point */
 	{
-		SetPixel( hDC, npObj->Old[0].x, npObj->Old[0].y, PALETTEINDEX( BLACK ) );
+		SetPixel( npObj->Old[0].x, npObj->Old[0].y, BLACK );
 		if (npObj->nCount > 0)
 		{
-			SetPixel( hDC, Pts[0].x, Pts[0].y, PALETTEINDEX( npObj->byColor ) );
+			SetPixel( Pts[0].x, Pts[0].y, npObj->byColor );
 			npObj->Old[0] = Pts[0];
 		}
 	}
 }
 
-//
-// SetRestart - set the restart timer
-//
 
-VOID NEAR PASCAL SetRestart( RESTART_MODE Restart )
+/* SetRestart - set the restart timer */
+
+void SetRestart( RESTART_MODE Restart )
 {
 	POINT           Pt;
-	CHAR            szBuff[32];
+	char            szBuff[32];
 
 	if (bRestart) return;
-	SetTimer( hAppWnd, RESTART_TIMER, RESTART_DELAY, NULL );
+        restart_timer_count=RESTART_DELAY_FRAMES;
 	bRestart = TRUE;
 
 	Pt.x = Pt.y = 0;
@@ -230,17 +232,16 @@ VOID NEAR PASCAL SetRestart( RESTART_MODE Restart )
 		PrintLetters( "GET READY", Pt, Pt, BLUE, 300 );
 		break;
 	case RESTART_NEXTLEVEL:
-		wsprintf( szBuff, "LEVEL %u", nLevel + 1 );
+		sprintf( szBuff, "LEVEL %d", nLevel + 1 );
 		PrintLetters( szBuff, Pt, Pt, BLUE, 300 );
 		break;
 	}
 }
 
-//
-// PrintPlayerMessage - show the player a status message
-//
 
-VOID NEAR PASCAL PrintPlayerMessage( NPSTR npszText )
+/* PrintPlayerMessage - show the player a status message */
+
+void PrintPlayerMessage( char * npszText )
 {
 	POINT Pos, Vel;
 
@@ -251,29 +252,28 @@ VOID NEAR PASCAL PrintPlayerMessage( NPSTR npszText )
 	PrintLetters( npszText, Pos, Vel, GREEN, 150 );
 }
 
-//
-// AddExtraLife - give the player another life
-//
 
-VOID NEAR PASCAL AddExtraLife( VOID )
+/* AddExtraLife - give the player another life */
+
+void AddExtraLife( void )
 {
 	PrintPlayerMessage( "EXTRA LIFE" );
+	queuesam(EFFECT_CHANNEL,EXTRALIFE_SAMPLE);
 	++npPlayer->nCount;
 	npPlayer->byColor = (BYTE)(BLACK + npPlayer->nCount);
 	if (npPlayer->byColor > WHITE) npPlayer->byColor = WHITE;
 }
 
-//
-// Hit - something hit an object, do fireworks
-//
 
-VOID NEAR PASCAL Hit( HDC hDC, NPOBJ npObj )
+/* Hit - something hit an object, do fireworks */
+
+void Hit( OBJ *npObj )
 {
-	INT             nCnt;
+	int             nCnt;
 
 	for (nCnt = 0; nCnt < 6; ++nCnt)
 	{
-		NPOBJ npFlame = RemHeadObj( &FreeList );
+		OBJ *npFlame = RemHeadObj( &FreeList );
 		if (!npFlame) return;
 		npFlame->Pos.x = npObj->Pos.x;
 		npFlame->Pos.y = npObj->Pos.y;
@@ -290,18 +290,17 @@ VOID NEAR PASCAL Hit( HDC hDC, NPOBJ npObj )
 	}
 }
 
-//
-// Explode - explode an object
-//
 
-VOID NEAR PASCAL Explode( HDC hDC, NPOBJ npObj )
+/* Explode - explode an object */
+
+void Explode( OBJ *npObj )
 {
-	INT             nCnt, nSize = npObj->byPts;
+	int             nCnt, nSize = npObj->byPts;
 
-	DrawObject( hDC, npObj );
+	DrawObject( npObj );
 	for (nCnt = 0; nCnt < nSize; ++nCnt)
 	{
-		NPOBJ npFlame;
+		OBJ *npFlame;
 		if (arand( 2 )) continue;
 		if (!(npFlame = RemHeadObj( &FreeList ))) return;
 		npFlame->Pos.x = npObj->Pos.x;
@@ -319,21 +318,20 @@ VOID NEAR PASCAL Explode( HDC hDC, NPOBJ npObj )
 		ACCEL( npFlame, npFlame->nDir, 60 - npFlame->nCount );
 		AddHeadObj( &FlameList, npFlame );
 	}
-	Hit( hDC, npObj );
+	Hit( npObj );
 }
 
-//
-// HitPlayer - blow up the player
-//
 
-BOOL NEAR PASCAL HitPlayer( HDC hDC, NPOBJ npObj )
+/* HitPlayer - blow up the player */
+
+int HitPlayer( OBJ *npObj )
 {
 	POINT           Vel;
-	INT             nMass, nSpin;
+	int             nMass, nSpin;
 
 	if (nSafe || (npPlayer->nCount <= 0)) return( FALSE );
 
-	// rumble and shake both objects
+	/* rumble and shake both objects */
 	nMass = npPlayer->nMass + npObj->nMass;
 
 	nSpin = npPlayer->nSpin + npObj->nSpin;
@@ -351,34 +349,35 @@ BOOL NEAR PASCAL HitPlayer( HDC hDC, NPOBJ npObj )
 	{
 		npPlayer->byColor = (BYTE)(BLACK + npPlayer->nCount);
 		if (npPlayer->byColor > WHITE) npPlayer->byColor = WHITE;
-		Hit( hDC, npPlayer );
+		Hit( npPlayer );
+		queuesam(EFFECT_CHANNEL,PHIT_SAMPLE);
 		return( TRUE );
 	}
 
-	// final death
+	/* final death */
 	npPlayer->byColor = WHITE;
-	Explode( hDC, npPlayer );
+	Explode( npPlayer );
+	queuesam(EFFECT_CHANNEL,EXPLODE2_SAMPLE);
 	SetRestart( RESTART_GAME );
 	return( FALSE );
 }
 
-//
-// CreateLetter - make a new letter object
-//
 
-NPOBJ FAR PASCAL CreateLetter( CHAR cLetter, INT nSize )
+/* CreateLetter - make a new letter object */
+
+OBJ *CreateLetter( int cLetter, int nSize )
 {
-	NPOBJ           npLtr;
-	INT             nCnt;
-	NPSTR           npDesc;
+	OBJ *npLtr;
+	int nCnt;
+	char *npDesc;
 
-	if (cLetter >= '0' && cLetter <= '9') npDesc = szNumberDesc[cLetter - '0'];
-	else if (cLetter >= 'A' && cLetter <= 'Z') npDesc = szLetterDesc[cLetter - 'A'];
-	else if (cLetter >= 'a' && cLetter <= 'z') npDesc = szLetterDesc[cLetter - 'a'];
+	if (cLetter >= '0' && cLetter <= '9') npDesc = NumberDesc[cLetter - '0'];
+	else if (cLetter >= 'A' && cLetter <= 'Z') npDesc = LetterDesc[cLetter - 'A'];
+	else if (cLetter >= 'a' && cLetter <= 'z') npDesc = LetterDesc[cLetter - 'a'];
 	else if (cLetter == '.') npDesc = "l";
 	else return( NULL );
 
-	if (npLtr = RemHeadObj( &FreeList ))
+	if ((npLtr = RemHeadObj( &FreeList )))
 	{
 		npLtr->nMass = 1;
 		npLtr->nDir = 0;
@@ -396,13 +395,12 @@ NPOBJ FAR PASCAL CreateLetter( CHAR cLetter, INT nSize )
 	return( npLtr );
 }
 
-//
-// DrawLetters - draw letters and such
-//
 
-VOID NEAR PASCAL DrawLetters( HDC hDC )
+/* DrawLetters - draw letters and such */
+
+void DrawLetters( void )
 {
-	NPOBJ           npLtr, npNext;
+	OBJ *npLtr, *npNext;
 
 	for (npLtr = HeadObj( &LetterList ); npLtr; npLtr = npNext)
 	{
@@ -417,21 +415,21 @@ VOID NEAR PASCAL DrawLetters( HDC hDC )
 			AddHeadObj( &FreeList, npLtr );
 			break;
 		}
-		DrawObject( hDC, npLtr );
+		DrawObject( npLtr );
 	}
 }
 
-//
-// CreateBonus - make a new bonus object
-//
 
-VOID NEAR PASCAL CreateBonus( VOID )
+/* CreateBonus - make a new bonus object */
+
+void CreateBonus( void )
 {
-	NPOBJ           npBonus;
-	INT             nCnt;
+	OBJ *          npBonus;
+	int             nCnt;
 
-	if (npBonus = RemHeadObj( &FreeList ))
+	if ((npBonus = RemHeadObj( &FreeList )))
 	{
+		queuesam(EFFECT_CHANNEL,NEWBONUS_SAMPLE);
 		npBonus->Pos.x = arand( CLIP_COORD * 2 ) - CLIP_COORD;
 		npBonus->Pos.y = -CLIP_COORD;
 		npBonus->Vel.x = npBonus->Vel.y = 0;
@@ -449,14 +447,13 @@ VOID NEAR PASCAL CreateBonus( VOID )
 	}
 }
 
-//
-// DrawBonuses - process and draw the bonus list
-//
 
-VOID NEAR PASCAL DrawBonuses( HDC hDC )
+/* DrawBonuses - process and draw the bonus list */
+
+void DrawBonuses( void )
 {
-	NPOBJ           npBonus, npNext;
-	LOCAL INT       nNextBonus = 1000;
+	OBJ *npBonus, *npNext;
+	static int       nNextBonus = 1000;
 
 	if (nBadGuys && (--nNextBonus < 0))
 	{
@@ -466,8 +463,8 @@ VOID NEAR PASCAL DrawBonuses( HDC hDC )
 
 	for (npBonus = HeadObj( &BonusList ); npBonus; npBonus = npNext)
 	{
-		NPOBJ           npShot;
-		INT             nDelta;
+		OBJ *          npShot;
+		int             nDelta;
 		RECT            rect;
 
 		npNext = NextObj( npBonus );
@@ -480,11 +477,11 @@ VOID NEAR PASCAL DrawBonuses( HDC hDC )
 			{
 			case 1:
 				{
-					CHAR szBuff[32];
-					LONG lBonus = 1000L * nLevel;
+					char szBuff[32];
+					int lBonus = 1000L * nLevel;
 					if (lBonus == 0) lBonus = 500;
 					lScore += lBonus;
-					wsprintf( szBuff, "%ld", lBonus );
+					sprintf( szBuff, "%d", lBonus );
 					PrintPlayerMessage( szBuff );
 				}
 				break;
@@ -503,7 +500,8 @@ VOID NEAR PASCAL DrawBonuses( HDC hDC )
 				break;
 			}
 			npBonus->nCount = 0;
-			Explode( hDC, npBonus );
+			Explode( npBonus );
+			queuesam(BADDIE_CHANNEL,BONUSGOT_SAMPLE);
 			RemoveObj( &BonusList, npBonus );
 			AddHeadObj( &FreeList, npBonus );
 		}
@@ -514,7 +512,8 @@ VOID NEAR PASCAL DrawBonuses( HDC hDC )
 				if (!PTINRECT( &rect, npShot->Pos )) continue;
 				npShot->nCount = 1;
 				npBonus->nCount = 0;
-				Explode( hDC, npBonus );
+				Explode( npBonus );
+				queuesam(BADDIE_CHANNEL,BONUSSHOT_SAMPLE);
 				RemoveObj( &BonusList, npBonus );
 				AddHeadObj( &FreeList, npBonus );
 			}
@@ -526,7 +525,8 @@ VOID NEAR PASCAL DrawBonuses( HDC hDC )
 			npBonus->byColor = (BYTE)(WHITE + (npBonus->nCount * 2));
 			if (npBonus->nCount == 0)
 			{
-				Explode( hDC, npBonus );
+				Explode( npBonus );
+				queuesam(BADDIE_CHANNEL,BONUSTIMEOUT_SAMPLE);
 				RemoveObj( &BonusList, npBonus );
 				AddHeadObj( &FreeList, npBonus );
 			}
@@ -537,17 +537,16 @@ VOID NEAR PASCAL DrawBonuses( HDC hDC )
 		nDelta = npPlayer->Pos.y - npBonus->Pos.y;
 		while (nDelta < -16 || nDelta > 16) nDelta /= 2;
 		npBonus->Vel.y += nDelta - npBonus->Vel.y / 16;
-		DrawObject( hDC, npBonus );
+		DrawObject( npBonus );
 	}
 }
 
-//
-// DrawHunterShots - process and draw the hunter shot list
-//
 
-VOID NEAR PASCAL DrawHunterShots( HDC hDC )
+/* DrawHunterShots - process and draw the hunter shot list */
+
+void DrawHunterShots( void )
 {
-	NPOBJ           npShot, npNext;
+	OBJ *npShot, *npNext;
 
 	for (npShot = HeadObj( &HunterShotList ); npShot; npShot = npNext)
 	{
@@ -559,7 +558,7 @@ VOID NEAR PASCAL DrawHunterShots( HDC hDC )
 
 		if (PTINRECT( &rect, npPlayer->Pos ))
 		{
-			HitPlayer( hDC, npShot );
+			HitPlayer( npShot );
 			npShot->nCount = 1;
 		}
 		switch (--npShot->nCount)
@@ -572,20 +571,20 @@ VOID NEAR PASCAL DrawHunterShots( HDC hDC )
 			AddHeadObj( &FreeList, npShot );
 			break;
 		}
-		DrawObject( hDC, npShot );
+		DrawObject( npShot );
 	}
 }
 
-//
-// FireHunterShot - fire a hunter bullet
-//
 
-VOID NEAR PASCAL FireHunterShot( NPOBJ npHunt )
+/* FireHunterShot - fire a hunter bullet */
+
+void FireHunterShot( OBJ *npHunt )
 {
-	NPOBJ           npShot;
+	OBJ *          npShot;
 
-	if (npShot = RemHeadObj( &FreeList ))
+	if ((npShot = RemHeadObj( &FreeList )))
 	{
+		queuesam(BSHOT_CHANNEL,BSHOT_SAMPLE);
 		npShot->Pos.x = npHunt->Pos.x;
 		npShot->Pos.y = npHunt->Pos.y;
 		npShot->Vel.x = npHunt->Vel.x;
@@ -605,17 +604,17 @@ VOID NEAR PASCAL FireHunterShot( NPOBJ npHunt )
 	}
 }
 
-//
-// CreateHunter - make a new hunter
-//
 
-VOID NEAR PASCAL CreateHunter( VOID )
+/* CreateHunter - make a new hunter */
+
+void CreateHunter( void )
 {
-	NPOBJ           npHunt;
-	INT             nCnt;
+	OBJ *          npHunt;
+	int             nCnt;
 
-	if (npHunt = RemHeadObj( &FreeList ))
+	if ((npHunt = RemHeadObj( &FreeList )))
 	{
+		queuesam(EFFECT_CHANNEL,NEWHUNT_SAMPLE);
 		npHunt->Pos.x = arand( CLIP_COORD * 2 ) - CLIP_COORD;
 		npHunt->Pos.y = -CLIP_COORD;
 		npHunt->Vel.x = npHunt->Vel.y = 0;
@@ -634,14 +633,13 @@ VOID NEAR PASCAL CreateHunter( VOID )
 	}
 }
 
-//
-// DrawHunters - process and draw the hunter list
-//
 
-VOID NEAR PASCAL DrawHunters( HDC hDC )
+/* DrawHunters - process and draw the hunter list */
+
+void DrawHunters( void )
 {
-	NPOBJ           npHunt, npNext;
-	LOCAL INT       nNextHunter = 200;
+	OBJ *npHunt, *npNext;
+	static int       nNextHunter = 200;
 
 	if (nBadGuys && (--nNextHunter < 0))
 	{
@@ -651,7 +649,7 @@ VOID NEAR PASCAL DrawHunters( HDC hDC )
 
 	for (npHunt = HeadObj( &HunterList ); npHunt; npHunt = npNext)
 	{
-		NPOBJ           npShot;
+		OBJ *          npShot;
 		RECT            rect;
 
 		npNext = NextObj( npHunt );
@@ -660,17 +658,22 @@ VOID NEAR PASCAL DrawHunters( HDC hDC )
 
 		if (PTINRECT( &rect, npPlayer->Pos ))
 		{
-			HitPlayer( hDC, npHunt );
+			HitPlayer( npHunt );
 			--npHunt->nCount;
 			if (npHunt->nCount < 1)
 			{
 				KillBadGuy();
 				npHunt->byColor = CYAN;
-				Explode( hDC, npHunt );
+				Explode( npHunt );
+				queuesam(BADDIE_CHANNEL,HUNTEXPLODE_SAMPLE);
 				RemoveObj( &HunterList, npHunt );
 				AddHeadObj( &FreeList, npHunt );
 			}
-			else if (npHunt->nCount == 1) npHunt->byColor = DKCYAN;
+			else if (npHunt->nCount == 1)
+			{
+				npHunt->byColor = DKCYAN;
+				queuesam(BADDIE_CHANNEL,BADDIEWOUND_SAMPLE);
+			}
 		}
 		else if (INTRECT(&rect, &rectShotClip))
 		{
@@ -683,14 +686,16 @@ VOID NEAR PASCAL DrawHunters( HDC hDC )
 				{
 					KillBadGuy();
 					npHunt->byColor = CYAN;
-					Explode( hDC, npHunt );
+					Explode( npHunt );
+					queuesam(BADDIE_CHANNEL,HUNTEXPLODE_SAMPLE);
 					RemoveObj( &HunterList, npHunt );
 					AddHeadObj( &FreeList, npHunt );
 				}
 				else
 				{
 					if (npHunt->nCount == 1) npHunt->byColor = DKCYAN;
-					Hit( hDC, npHunt );
+					Hit( npHunt );
+					queuesam(BADDIE_CHANNEL,BADDIEWOUND_SAMPLE);
 				}
 				break;
 			}
@@ -704,21 +709,21 @@ VOID NEAR PASCAL DrawHunters( HDC hDC )
 			npHunt->nSpin = arand( 11 ) - 5;
 			FireHunterShot( npHunt );
 		}
-		DrawObject( hDC, npHunt );
+		DrawObject( npHunt );
 	}
 }
 
-//
-// CreateSwarmer - make a new swarmer
-//
 
-VOID NEAR PASCAL CreateSwarmer( POINT Pos, INT nDir, INT nCount )
+/* CreateSwarmer - make a new swarmer */
+
+void CreateSwarmer( POINT Pos, int nDir, int nCount )
 {
-	NPOBJ           npSwarm;
-	INT             nCnt;
+	OBJ *          npSwarm;
+	int             nCnt;
 
-	if (npSwarm = RemHeadObj( &FreeList ))
+	if ((npSwarm = RemHeadObj( &FreeList )))
 	{
+		queuesam(EFFECT_CHANNEL,NEWSWARM_SAMPLE);
 		npSwarm->Pos = Pos;
 		npSwarm->Vel.x = npSwarm->Vel.y = 0;
 		npSwarm->nDir = nDir;
@@ -739,14 +744,13 @@ VOID NEAR PASCAL CreateSwarmer( POINT Pos, INT nDir, INT nCount )
 	}
 }
 
-//
-// DrawSwarmers - process and draw the swarmer list
-//
 
-VOID NEAR PASCAL DrawSwarmers( HDC hDC )
+/* DrawSwarmers - process and draw the swarmer list */
+
+void DrawSwarmers( void )
 {
-	NPOBJ           npSwarm, npNext;
-	LOCAL INT       nNextSwarmer = 1000;
+	OBJ *npSwarm, *npNext;
+	static int       nNextSwarmer = 1000;
 
 	if (nBadGuys && (--nNextSwarmer < 0))
 	{
@@ -759,7 +763,7 @@ VOID NEAR PASCAL DrawSwarmers( HDC hDC )
 
 	for (npSwarm = HeadObj( &SwarmerList ); npSwarm; npSwarm = npNext)
 	{
-		NPOBJ           npShot;
+		OBJ *          npShot;
 		RECT            rect;
 
 		npNext = NextObj( npSwarm );
@@ -768,7 +772,7 @@ VOID NEAR PASCAL DrawSwarmers( HDC hDC )
 
 		if (PTINRECT( &rect, npPlayer->Pos ))
 		{
-			HitPlayer( hDC, npSwarm );
+			HitPlayer( npSwarm );
 			npSwarm->nCount = 0;
 		}
 		else if (INTRECT(&rect, &rectShotClip))
@@ -786,7 +790,8 @@ VOID NEAR PASCAL DrawSwarmers( HDC hDC )
 		{
 			npSwarm->byColor = GREEN;
 			KillBadGuy();
-			Explode( hDC, npSwarm );
+			Explode( npSwarm );
+			queuesam(BADDIE_CHANNEL,SWARMSPLIT_SAMPLE);
 			RemoveObj( &SwarmerList, npSwarm );
 			AddHeadObj( &FreeList, npSwarm );
 		}
@@ -794,29 +799,29 @@ VOID NEAR PASCAL DrawSwarmers( HDC hDC )
 		{
 			if ((npSwarm->nCount > 1) && (--npSwarm->nDelay <= 0))
 			{
-				INT nDir = arand( DEGREE_SIZE );
-				INT nCount = npSwarm->nCount / 2;
+				int nDir = arand( DEGREE_SIZE );
+				int nCount = npSwarm->nCount / 2;
 				CreateSwarmer( npSwarm->Pos, nDir, nCount );
 				nCount = npSwarm->nCount - nCount;
 				CreateSwarmer( npSwarm->Pos, nDir + 128, nCount );
 				npSwarm->nCount = 0;
 			}
-			DrawObject( hDC, npSwarm );
+			DrawObject( npSwarm );
 		}
 	}
 }
 
-//
-// CreateSpinner - make a new spinner
-//
 
-VOID NEAR PASCAL CreateSpinner( VOID )
+/* CreateSpinner - make a new spinner */
+
+void CreateSpinner( void )
 {
-	NPOBJ           npSpin;
-	INT             nCnt;
+	OBJ *          npSpin;
+	int             nCnt;
 
-	if (npSpin = RemHeadObj( &FreeList ))
+	if ((npSpin = RemHeadObj( &FreeList )))
 	{
+		queuesam(EFFECT_CHANNEL,NEWSPIN_SAMPLE);
 		npSpin->Pos.x = arand( CLIP_COORD * 2 ) - CLIP_COORD;
 		npSpin->Pos.y = -CLIP_COORD;
 		npSpin->Vel.x = npSpin->Vel.y = 0;
@@ -834,14 +839,13 @@ VOID NEAR PASCAL CreateSpinner( VOID )
 	}
 }
 
-//
-// DrawSpinners - process and draw the spinner list
-//
 
-VOID NEAR PASCAL DrawSpinners( HDC hDC )
+/* DrawSpinners - process and draw the spinner list */
+
+void DrawSpinners( void )
 {
-	NPOBJ           npSpin, npNext;
-	LOCAL INT       nNextSpinner = 1000;
+	OBJ *npSpin, *npNext;
+	static int       nNextSpinner = 1000;
 
 	if (nBadGuys && (--nNextSpinner < 0))
 	{
@@ -851,8 +855,8 @@ VOID NEAR PASCAL DrawSpinners( HDC hDC )
 
 	for (npSpin = HeadObj( &SpinnerList ); npSpin; npSpin = npNext)
 	{
-		NPOBJ           npShot;
-		INT             nDelta;
+		OBJ *          npShot;
+		int             nDelta;
 		RECT            rect;
 
 		npNext = NextObj( npSpin );
@@ -861,15 +865,20 @@ VOID NEAR PASCAL DrawSpinners( HDC hDC )
 
 		if (PTINRECT( &rect, npPlayer->Pos ))
 		{
-			HitPlayer( hDC, npSpin );
+			HitPlayer( npSpin );
 			--npSpin->nCount;
 			npSpin->byColor = (BYTE)(MAGENTA - npSpin->nCount);
 			if (npSpin->nCount < 1)
 			{
 				KillBadGuy();
-				Explode( hDC, npSpin );
+				Explode( npSpin );
+				queuesam(BADDIE_CHANNEL,SPINEXPLODE_SAMPLE);
 				RemoveObj( &SpinnerList, npSpin );
 				AddHeadObj( &FreeList, npSpin );
+			}
+			else
+			{
+				queuesam(BADDIE_CHANNEL,BADDIEWOUND_SAMPLE);
 			}
 		}
 		else if (INTRECT(&rect, &rectShotClip))
@@ -883,11 +892,16 @@ VOID NEAR PASCAL DrawSpinners( HDC hDC )
 				if (npSpin->nCount < 1)
 				{
 					KillBadGuy();
-					Explode( hDC, npSpin );
+					Explode( npSpin );
+					queuesam(BADDIE_CHANNEL,SPINEXPLODE_SAMPLE);
 					RemoveObj( &SpinnerList, npSpin );
 					AddHeadObj( &FreeList, npSpin );
 				}
-				else Hit( hDC, npSpin );
+				else
+				{
+					Hit( npSpin );
+					queuesam(BADDIE_CHANNEL,BADDIEWOUND_SAMPLE);
+				}
 				break;
 			}
 		}
@@ -897,21 +911,20 @@ VOID NEAR PASCAL DrawSpinners( HDC hDC )
 		nDelta = npPlayer->Pos.y - npSpin->Pos.y;
 		while (nDelta < -16 || nDelta > 16) nDelta /= 2;
 		npSpin->Vel.y += nDelta - npSpin->Vel.y / 16;
-		DrawObject( hDC, npSpin );
+		DrawObject( npSpin );
 	}
 }
 
-//
-// CreateRoid - make a new asteroid
-//
 
-VOID NEAR PASCAL CreateRoid( POINT Pos, POINT Vel, INT nSides, BYTE byColor,
-							 INT nDir, INT nSpeed, INT nSpin )
+/* CreateRoid - make a new asteroid */
+
+void CreateRoid( POINT Pos, POINT Vel, int nSides, BYTE byColor,
+							 int nDir, int nSpeed, int nSpin )
 {
-	NPOBJ           npRoid;
-	INT             nCnt;
+	OBJ *          npRoid;
+	int             nCnt;
 
-	if (npRoid = RemHeadObj( &FreeList ))
+	if ((npRoid = RemHeadObj( &FreeList )))
 	{
 		npRoid->Pos = Pos;
 		npRoid->Vel = Vel;
@@ -933,13 +946,12 @@ VOID NEAR PASCAL CreateRoid( POINT Pos, POINT Vel, INT nSides, BYTE byColor,
 	}
 }
 
-//
-// BreakRoid - break up an asteroid
-//
 
-VOID NEAR PASCAL BreakRoid( HDC hDC, NPOBJ npRoid, NPOBJ npShot )
+/* BreakRoid - break up an asteroid */
+
+void BreakRoid( OBJ *npRoid, OBJ *npShot )
 {
-	INT             nCnt, nNew;
+	int             nCnt, nNew;
 
 	lScore += npRoid->nCount;
 	if (npShot) npShot->nCount = 1;
@@ -961,16 +973,17 @@ VOID NEAR PASCAL BreakRoid( HDC hDC, NPOBJ npRoid, NPOBJ npShot )
 		nNew = 0;
 		break;
 	}
-	if (nNew == 1) // don't explode outward
+	if (nNew == 1)		/* don't explode outward */
 	{
 		POINT Pt = npRoid->Pos;
 		Pt.x += arand( 301 ) - 150; Pt.y += arand( 301 ) - 150;
 		CreateRoid( Pt, npRoid->Vel, npRoid->byPts - (nNew + 1),
-					npRoid->byColor, npShot->nDir, 8, npRoid->nSpin );
+			npRoid->byColor, npShot?(npShot->nDir):npRoid->nDir,
+			8, npRoid->nSpin );
 	}
 	else if (nNew > 0)
 	{
-		INT nSpeed = npRoid->nSpin * npRoid->nSpin * nNew + 16;
+		int nSpeed = npRoid->nSpin * npRoid->nSpin * nNew + 16;
 		for (nCnt = 0; nCnt < nNew; ++nCnt)
 		{
 			POINT Pt = npRoid->Pos;
@@ -987,40 +1000,44 @@ VOID NEAR PASCAL BreakRoid( HDC hDC, NPOBJ npRoid, NPOBJ npShot )
 	npRoid->nCount = 0;
 	if (nNew)
 	{
-		Hit( hDC, npRoid );
-		DrawObject( hDC, npRoid );
+		Hit( npRoid );
+		DrawObject( npRoid );
+		queuesam(ASTEROID_CHANNEL,ROIDSPLIT_SAMPLE);
 	}
-	else Explode( hDC, npRoid );
+	else
+        {
+        	Explode( npRoid );
+		queuesam(ASTEROID_CHANNEL,ROIDNOSPLIT_SAMPLE);
+	}
 	RemoveObj( &RoidList, npRoid );
 	AddHeadObj( &FreeList, npRoid );
 }
 
-//
-// DrawRoids - process and draw the asteroid list
-//
 
-VOID NEAR PASCAL DrawRoids( HDC hDC )
+/* DrawRoids - process and draw the asteroid list */
+
+void DrawRoids( void )
 {
-	NPOBJ           npRoid, npNext;
+	OBJ *npRoid, *npNext;
 
 	for (npRoid = HeadObj( &RoidList ); npRoid; npRoid = npNext)
 	{
-		INT             nSize = npRoid->nCount;
-		NPOBJ           npShot;
+		int             nSize = npRoid->nCount;
+		OBJ *          npShot;
 		RECT            rect;
 
 		npNext = NextObj( npRoid );
 
-		DrawObject( hDC, npRoid );
+		DrawObject( npRoid );
 
 		MKRECT( &rect, npRoid->Pos, nSize );
 
-		if (PTINRECT( &rect, npPlayer->Pos ) && HitPlayer( hDC, npRoid ))
+		if (PTINRECT( &rect, npPlayer->Pos ) && HitPlayer( npRoid ))
 		{
 			npPlayer->nCount = -npPlayer->nCount;
 			npPlayer->byColor = WHITE;
-			Explode( hDC, npPlayer );
-			BreakRoid( hDC, npRoid, NULL );
+			Explode( npPlayer );
+			BreakRoid( npRoid, NULL );
 			if (nBadGuys) SetRestart( RESTART_LEVEL );
 			else SetRestart( RESTART_NEXTLEVEL );
 		}
@@ -1029,22 +1046,21 @@ VOID NEAR PASCAL DrawRoids( HDC hDC )
 			for (npShot = HeadObj( &ShotList ); npShot; npShot = NextObj( npShot ))
 			{
 				if (!PTINRECT( &rect, npShot->Pos )) continue;
-				BreakRoid( hDC, npRoid, npShot );
+				BreakRoid( npRoid, npShot );
 				break;
 			}
 		}
 	}
 }
 
-//
-// DrawShots - process and draw the player shot list
-//
 
-VOID NEAR PASCAL DrawShots( HDC hDC )
+/* DrawShots - process and draw the player shot list */
+
+void DrawShots( void )
 {
-	NPOBJ           npShot, npNext;
+	OBJ *npShot, *npNext;
 
-	if (npShot = HeadObj( &ShotList ))
+	if ((npShot = HeadObj( &ShotList )))
 	{
 		rectShotClip.left = rectShotClip.right = npShot->Pos.x;
 		rectShotClip.top = rectShotClip.bottom = npShot->Pos.y;
@@ -1064,7 +1080,7 @@ VOID NEAR PASCAL DrawShots( HDC hDC )
 				AddHeadObj( &FreeList, npShot );
 				break;
 			}
-			DrawObject( hDC, npShot );
+			DrawObject( npShot );
 			if (npShot->Pos.x < rectShotClip.left) rectShotClip.left = npShot->Pos.x;
 			else if (npShot->Pos.x > rectShotClip.right) rectShotClip.right = npShot->Pos.x;
 			if (npShot->Pos.y < rectShotClip.top) rectShotClip.top = npShot->Pos.y;
@@ -1075,13 +1091,12 @@ VOID NEAR PASCAL DrawShots( HDC hDC )
 	else rectShotClip.left = rectShotClip.right = rectShotClip.top = rectShotClip.bottom = 32767;
 }
 
-//
-// DrawFlames - process and draw the flame list
-//
 
-VOID NEAR PASCAL DrawFlames( HDC hDC )
+/* DrawFlames - process and draw the flame list */
+
+void DrawFlames( void )
 {
-	NPOBJ           npFlame, npNext;
+	OBJ *npFlame, *npNext;
 
 	for (npFlame = HeadObj( &FlameList ); npFlame; npFlame = npNext)
 	{
@@ -1099,20 +1114,20 @@ VOID NEAR PASCAL DrawFlames( HDC hDC )
 			AddHeadObj( &FreeList, npFlame );
 			break;
 		}
-		DrawObject( hDC, npFlame );
+		DrawObject( npFlame );
 	}
 }
 
-//
-// FireShot - fire a bullet
-//
 
-VOID NEAR PASCAL FireShot( VOID )
+/* FireShot - fire a bullet */
+
+void FireShot( void )
 {
-	NPOBJ           npShot;
+	OBJ *          npShot;
 
-	if (npShot = RemHeadObj( &FreeList ))
+	if ((npShot = RemHeadObj( &FreeList )))
 	{
+		queuesam(PSHOT_CHANNEL,PSHOT_SAMPLE);
 		npShot->Pos.x = npPlayer->Pos.x;
 		npShot->Pos.y = npPlayer->Pos.y;
 		npShot->Vel.x = npPlayer->Vel.x;
@@ -1132,17 +1147,17 @@ VOID NEAR PASCAL FireShot( VOID )
 	}
 }
 
-//
-// AccelPlayer - move the player forward
-//
 
-VOID NEAR PASCAL AccelPlayer( INT nDir, INT nAccel )
+/* AccelPlayer - move the player forward */
+
+void AccelPlayer( int nDir, int nAccel )
 {
-	NPOBJ           npFlame;
+	OBJ *          npFlame;
 
+	queuesam(PTHRUST_CHANNEL,PTHRUST_SAMPLE);
 	nDir += npPlayer->nDir;
 	if (nAccel) ACCEL( npPlayer, nDir, nAccel );
-	if (npFlame = RemHeadObj( &FreeList ))
+	if ((npFlame = RemHeadObj( &FreeList )))
 	{
 		npFlame->Pos.x = npPlayer->Pos.x;
 		npFlame->Pos.y = npPlayer->Pos.y;
@@ -1159,14 +1174,41 @@ VOID NEAR PASCAL AccelPlayer( INT nDir, INT nAccel )
 	}
 }
 
-//
-// DrawPlayer - process and draw the player
-//
 
-VOID NEAR PASCAL DrawPlayer( HDC hDC )
+/* HitList - Hit() a list of things */
+
+void HitList( LIST *npList )
 {
-	LOCAL INT       nBombing = 0;
-	LOCAL INT       nShotDelay = 0;
+	OBJ *          npObj;
+
+	for (npObj = HeadObj( npList ); npObj; npObj = NextObj( npObj ))
+		if (npObj->nCount) Hit( npObj );
+}
+
+
+/* ExplodeBadguys - explode a list of badguys */
+
+void ExplodeBadguys( LIST *npList )
+{
+	OBJ *          npObj;
+
+	while ((npObj = HeadObj( npList )))
+	{
+		KillBadGuy();
+		npObj->nCount = 0;
+		Explode( npObj );
+		RemoveObj( npList, npObj );
+		AddHeadObj( &FreeList, npObj );
+	}
+}
+
+
+/* DrawPlayer - process and draw the player */
+
+void DrawPlayer( void )
+{
+	static int       nBombing = 0;
+	static int       nShotDelay = 0;
 
 	if (npPlayer->nCount <= 0) return;
 
@@ -1178,7 +1220,7 @@ VOID NEAR PASCAL DrawPlayer( HDC hDC )
 			if (npPlayer->byColor > WHITE) npPlayer->byColor = WHITE;
 		}
 	}
-	else if (IsKeyDown( vkShld ) && nShield > 0)
+	else if (IsKeyDown( KEY_TAB ) && nShield > 0)
 	{
 		nSafe = 15;
 		if (--nShield > 0) npPlayer->byColor = GREEN;
@@ -1189,229 +1231,92 @@ VOID NEAR PASCAL DrawPlayer( HDC hDC )
 	{
 		if (--nBombing == 0)
 		{
-			ExplodeBadguys( hDC, &SpinnerList );
-			ExplodeBadguys( hDC, &SwarmerList );
-			ExplodeBadguys( hDC, &HunterList );
+			ExplodeBadguys( &SpinnerList );
+			ExplodeBadguys( &SwarmerList );
+			ExplodeBadguys( &HunterList );
+			queuesam(EFFECT_CHANNEL,EXPLODE2_SAMPLE);
 		}
 		else
 		{
-			HitList( hDC, &SpinnerList );
-			HitList( hDC, &SwarmerList );
-			HitList( hDC, &HunterList );
+			HitList( &SpinnerList );
+			HitList( &SwarmerList );
+			HitList( &HunterList );
 		}
 	}
-	else if (nBomb && IsKeyDown( vkBomb )) --nBomb, nBombing = 5;
+	else if (nBomb && IsKeyDown( KEY_S )) --nBomb, nBombing = 5;
 
-	if (IsKeyDown( vkClkw )) npPlayer->nSpin += 8;
-	if (IsKeyDown( vkCtrClkw )) npPlayer->nSpin -= 8;
-	if (IsKeyDown( vkThrst )) AccelPlayer( 0, 12 );
-	if (IsKeyDown( vkRvThrst )) AccelPlayer( 128, 12 );
+	if (IsKeyDown( KEY_LEFT )) npPlayer->nSpin += 8;
+	if (IsKeyDown( KEY_RIGHT )) npPlayer->nSpin -= 8;
+	if (IsKeyDown( KEY_DOWN )) AccelPlayer( 0, 12 );
+	if (IsKeyDown( KEY_UP )) AccelPlayer( 128, 12 );
 	if (nShotDelay) --nShotDelay;
-	else if (IsKeyDown( vkFire )) FireShot(), nShotDelay = 2;
-	DrawObject( hDC, npPlayer );
+	else if (IsKeyDown( KEY_SPACE )) FireShot(), nShotDelay = 2;
+	DrawObject( npPlayer );
 	npPlayer->nSpin /= 2;
 }
 
-//
-// GetHyperoidDC - get the correct DC for hyperoid rendering
-//
 
-HDC NEAR PASCAL GetHyperoidDC( HWND hWnd )
+
+/* DrawObjects - transform and redraw everything in the system */
+
+void DrawObjects( void )
 {
-	HDC             hDC;
-	INT             cx, cy;
-	RECT            rect;
-
-	GetClientRect( hWnd, &rect );
-	cx = rect.right - rect.left;
-	cy = rect.bottom - rect.top;
-
-	hDC = GetDC( hWnd );
-
-	// set up the mapping mode
-	SetMapMode( hDC, MM_ISOTROPIC );
-	SetWindowExt( hDC, MAX_COORD, MAX_COORD );
-	SetViewportExt( hDC, cx / 2, -cy / 2 );
-	SetViewportOrg( hDC, cx / 2, cy / 2 );
-
-	// realize the palette
-	SelectPalette( hDC, hAppPalette, 0 );
-	RealizePalette( hDC );
-
-	return( hDC );
+	/* move and draw things (I don't think the order is important...) */
+	DrawPlayer();
+	DrawFlames();
+	DrawShots();
+	DrawRoids();
+	DrawSpinners();
+	DrawSwarmers();
+	DrawHunters();
+	DrawHunterShots();
+	DrawLetters();
+	DrawBonuses();
+	/* (...but I'm not changing it!!! :-) */
 }
 
-//
-// DrawObjects - transform and redraw everything in the system
-//
 
-VOID NEAR PASCAL DrawObjects( HWND hWnd )
+/* CheckScore - show the score and such stuff */
+
+void CheckScore( void )
 {
-	HDC             hDC = GetHyperoidDC( hWnd );
+	int nLives;
 
-	// move and draw things (I don't think the order is important...)
-	DrawPlayer( hDC );
-	DrawFlames( hDC );
-	DrawShots( hDC );
-	DrawRoids( hDC );
-	DrawSpinners( hDC );
-	DrawSwarmers( hDC );
-	DrawHunters( hDC );
-	DrawHunterShots( hDC );
-	DrawLetters( hDC );
-	DrawBonuses( hDC );
-	// (...but I'm not changing it!!! :-)
-
-	ReleaseDC( hWnd, hDC );
-}
-
-//
-// SetIndicator - set a quantity indicator
-//
-
-INT NEAR PASCAL SetIndicator( NPSTR npBuff, CHAR IDBitmap, INT nQuant )
-{
-	if (nQuant > 5)
-	{
-		*npBuff++ = IDBitmap; *npBuff++ = IDBitmap;
-		*npBuff++ = IDBitmap; *npBuff++ = IDBitmap;
-		*npBuff++ = IDB_plus;
-	}
-	else
-	{
-		INT nBlank = 5 - nQuant;
-		while (nQuant--) *npBuff++ = IDBitmap;
-		while (nBlank--) *npBuff++ = IDB_blank;
-	}
-	return( 5 );
-}
-
-//
-// CheckScore - show the score and such stuff
-//
-
-VOID NEAR PASCAL CheckScore( HWND hWnd )
-{
-	CHAR            szBuff[sizeof(szScore)];
-	NPSTR           npBuff = szBuff;
-	INT             nLives, nLen, nCnt, x, y;
-	HBITMAP         hbmOld;
-	HDC             hDC, hDCMem;
-
-	if (IsIconic( hWnd )) return;
 	if (lScore - lLastLife > EXTRA_LIFE)
 	{
 		AddExtraLife();
 		lLastLife = lScore;
 	}
-	nLives = ((npPlayer->nCount > 0) ? npPlayer->nCount : -npPlayer->nCount);
 
-	*npBuff++ = IDB_level;
-	wsprintf( npBuff, "%2.2u", nLevel );
-	while (isdigit( *npBuff ))
-		*npBuff = (CHAR)(*npBuff + IDB_num0 - '0'), ++npBuff;
-	*npBuff++ = IDB_blank; *npBuff++ = IDB_score;
-	wsprintf( npBuff, "%7.7lu", lScore );
-	while (isdigit( *npBuff ))
-		*npBuff = (CHAR)(*npBuff + IDB_num0 - '0'), ++npBuff;
-	*npBuff++ = IDB_blank;
-	npBuff += SetIndicator( npBuff, IDB_life, nLives );
-	npBuff += SetIndicator( npBuff, IDB_shield, nShield );
-	npBuff += SetIndicator( npBuff, IDB_bomb, nBomb );
-	nLen = npBuff - szBuff;
+	/* apparently, -ve player lives means we're starting a new
+	 * life soon (ouch). -rjm
+	 */
+	nLives=((npPlayer->nCount > 0) ? npPlayer->nCount : -npPlayer->nCount);
 
-	hDC = GetWindowDC( hWnd );
-	IntersectClipRect( hDC, rectScoreClip.left, rectScoreClip.top,
-							rectScoreClip.right, rectScoreClip.bottom );
-	hDCMem = CreateCompatibleDC( hDC );
-	hbmOld = SelectObject( hDCMem, hBitmap[0] );
-	x = rectScoreClip.left;
-	y = rectScoreClip.top;
-
-	for (nCnt = 0; nCnt < nLen; ++nCnt)
-	{
-		if (szBuff[nCnt] != szScore[nCnt])
-		{
-			SelectObject( hDCMem, hBitmap[szBuff[nCnt] - IDB_blank] );
-			BitBlt( hDC, x, y, CX_BITMAP, CY_BITMAP, hDCMem, 0, 0, SRCCOPY );
-			szScore[nCnt] = szBuff[nCnt];
-		}
-		x += CX_BITMAP;
-	}
-	if (nCnt < nScoreLen)
-	{
-		SelectObject( hDCMem, hBitmap[0] );
-		do {
-			if (szScore[nCnt] != IDB_blank)
-			{
-				BitBlt( hDC, x, y, CX_BITMAP, CY_BITMAP, hDCMem, 0, 0, SRCCOPY );
-				szScore[nCnt] = IDB_blank;
-			}
-			x += CX_BITMAP;
-		} while (++nCnt < nScoreLen);
-	}
-	nScoreLen = nLen;
-
-	SelectObject( hDCMem, hbmOld );
-	DeleteDC( hDCMem );
-	ReleaseDC( hWnd, hDC );
+	/* actually do the score/lives/etc-drawing */
+	score_graphics(nLevel,lScore,nLives,nShield,nBomb);
 }
 
-//
-// HitList - Hit() a list of things
-//
 
-VOID NEAR PASCAL HitList( HDC hDC, NPLIST npList )
+/* NewGame - start a new game */
+
+void NewGame( void )
 {
-	NPOBJ           npObj;
-
-	for (npObj = HeadObj( npList ); npObj; npObj = NextObj( npObj ))
-		if (npObj->nCount) Hit( hDC, npObj );
-}
-
-//
-// ExplodeBadguys - explode a list of badguys
-//
-
-VOID NEAR PASCAL ExplodeBadguys( HDC hDC, NPLIST npList )
-{
-	NPOBJ           npObj;
-
-	while (npObj = HeadObj( npList ))
-	{
-		KillBadGuy();
-		npObj->nCount = 0;
-		Explode( hDC, npObj );
-		RemoveObj( npList, npObj );
-		AddHeadObj( &FreeList, npObj );
-	}
-}
-
-//
-// NewGame - start a new game
-//
-
-VOID NEAR PASCAL NewGame( HWND hWnd )
-{
-	HDC             hDC = GetHyperoidDC( hWnd );
-
 	npPlayer->nCount = 0;
 	npPlayer->byColor = WHITE;
-	Explode( hDC, npPlayer );
+	Explode( npPlayer );
 	SetRestart( RESTART_GAME );
-	ExplodeBadguys( hDC, &RoidList );
-	ExplodeBadguys( hDC, &SpinnerList );
-	ExplodeBadguys( hDC, &SwarmerList );
-	ExplodeBadguys( hDC, &HunterList );
-
-	ReleaseDC( hWnd, hDC );
+	ExplodeBadguys( &RoidList );
+	ExplodeBadguys( &SpinnerList );
+	ExplodeBadguys( &SwarmerList );
+	ExplodeBadguys( &HunterList );
+	queuesam(EFFECT_CHANNEL,EXPLODE2_SAMPLE);
 }
 
-//
-// RestartHyperoid - set up a game!
-//
 
-VOID NEAR PASCAL RestartHyperoid( VOID )
+/* RestartHyperoid - set up a game! */
+
+void RestartHyperoid( void )
 {
 	if (npPlayer->nCount == 0)
 	{
@@ -1420,7 +1325,10 @@ VOID NEAR PASCAL RestartHyperoid( VOID )
 		Pos.y = -CLIP_COORD / 2;
 		Vel.x = 0;
 		Vel.y = 150;
-		PrintLetters( szAppName, Pos, Vel, YELLOW, 800 );
+		PrintLetters( "HYPEROID", Pos, Vel, YELLOW, 800 );
+		queuesam(EFFECT_CHANNEL,TITLE_SAMPLE);
+		queuesam(ASTEROID_CHANNEL,TITLE_SAMPLE);
+		queuesam(BADDIE_CHANNEL,TITLE_SAMPLE);
 		npPlayer->nCount = 3;
 		if (lHighScore < lScore) lHighScore = lScore;
 		lLastLife = lScore = 0;
@@ -1429,7 +1337,7 @@ VOID NEAR PASCAL RestartHyperoid( VOID )
 	}
 	else if (npPlayer->nCount < 0)
 	{
-		// cheesy way of restarting after a major collision
+		/* cheesy way of restarting after a major collision */
 		npPlayer->nCount = -npPlayer->nCount;
 		nShield = nBomb = 3;
 	}
@@ -1443,15 +1351,15 @@ VOID NEAR PASCAL RestartHyperoid( VOID )
 
 	if (ShotList.npHead)
 	{
-		NPOBJ npShot;
+		OBJ *npShot;
 		for (npShot = HeadObj( &ShotList ); npShot; npShot = NextObj( npShot ))
 			npShot->nCount = 1;
 	}
 
-	// reseed the asteroid field
+	/* reseed the asteroid field */
 	if (nBadGuys == 0)
 	{
-		INT nCnt;
+		int nCnt;
 		++nLevel;
 		for (nCnt = 5 + nLevel; nCnt; --nCnt)
 		{
@@ -1466,386 +1374,127 @@ VOID NEAR PASCAL RestartHyperoid( VOID )
 	}
 }
 
-//
-// Panic - boss key (or just pause)
-//
 
-VOID NEAR PASCAL Panic( BOOL bPanic )
+
+/* InitHyperoid - initialize everything */
+
+void InitHyperoid( void )
 {
-	if (bPanic && !bPaused)
-	{
-		bPaused = TRUE;
-		KillTimer( hAppWnd, DRAW_TIMER );
-		SetWindowText( hAppWnd, "Program Manager Help - PROGMAN.HLP" );
-		ShowWindow( hAppWnd, SW_SHOWMINNOACTIVE );
-		InvalidateRect( hAppWnd, NULL, TRUE );
-	}
-	else if (bPaused) // double-panic == normal
-	{
-		bPaused = FALSE;
-		SetWindowText( hAppWnd, szAppName );
-		if (bPanic) ShowWindow( hAppWnd, SW_RESTORE );
-		SetTimer( hAppWnd, DRAW_TIMER, nDrawDelay, NULL );
-	}
-}
+	double          dRad;
+	int             nCnt;
 
-//
-// PaintHyperoid - paint the hyperoid window
-//
+	/* seed the randomizer */
+	dwSeed = time(NULL);	/* XXX GetCurrentTime(); */
 
-VOID NEAR PASCAL PaintHyperoid( HWND hWnd )
-{
-	PAINTSTRUCT     ps;
-
-	BeginPaint( hWnd, &ps );
-	if (bPaused) DrawIcon( ps.hdc, 2, 2, LoadIcon( hAppInst, INTRES(IDI_PANIC) ) );
-	EndPaint( hWnd, &ps );
-}
-
-//
-// EraseHyperoidBkgnd - fill in the background
-//
-
-BOOL NEAR PASCAL EraseHyperoidBkgnd( HWND hWnd, HDC hDC )
-{
-	HBRUSH          hbr;
-	RECT            rect;
-
-	GetClientRect( hWnd, &rect );
-
-	if (bPaused)
-	{
-		SetBrushOrg( hDC, 0, 0 );
-		hbr = CreateSolidBrush( GetSysColor( COLOR_BACKGROUND ) );
-	}
-	else
-	{
-		SelectPalette( hDC, hAppPalette, 0 );
-		RealizePalette( hDC );
-		hbr = CreateSolidBrush( PALETTEINDEX( BLACK ) );
-	}
-
-	FillRect( hDC, &rect, hbr );
-	DeleteObject( hbr );
-	return( TRUE );
-}
-
-//
-// DrawShadowRect - draw a shaded rectangle around an object
-//
-
-VOID NEAR PASCAL DrawShadowRect( HDC hDC, NPRECT npRect, HPEN hHi, HPEN hLo )
-{
-	SelectObject( hDC, hHi );
-	MoveTo( hDC, npRect->right, npRect->top );
-	LineTo( hDC, npRect->left, npRect->top );
-	LineTo( hDC, npRect->left, npRect->bottom );
-	SelectObject( hDC, hLo );
-	LineTo( hDC, npRect->right, npRect->bottom );
-	LineTo( hDC, npRect->right, npRect->top );
-}
-
-//
-// NCPaintHyperoid - paint a custom frame
-//
-
-VOID NEAR PASCAL NCPaintHyperoid( HWND hWnd )
-{
-	HDC             hDC, hDCMem;
-	INT             cx, cy, cyCap, h;
-	HPEN            hpenHi, hpenLo;
-	HBRUSH          hbr;
-	HBITMAP         hbm, hbmOld;
-	BITMAP          bm;
-	RECT            rect;
-
-	if (IsIconic( hWnd )) return;
-	hDC = GetWindowDC( hWnd );
-	GetWindowRect( hWnd, &rect );
-	rect.right -= rect.left, rect.left = 0;
-	rect.bottom -= rect.top, rect.top = 0;
-	cx = GetSystemMetrics( SM_CXFRAME );
-	cy = GetSystemMetrics( SM_CYFRAME );
-	cyCap = cy + GetSystemMetrics( SM_CYCAPTION ) - 1;
-	h = rect.bottom - (cyCap + cy);
-
-	SelectPalette( hDC, hAppPalette, 0 );
-	RealizePalette( hDC );
-	if (bBW)
-	{
-		hbr = SelectObject( hDC, CreateSolidBrush( PALETTEINDEX( WHITE ) ) );
-		hpenHi = hPen[BLACK];
-		hpenLo = hPen[BLACK];
-	}
-	else
-	{
-		hbr = SelectObject( hDC, CreateSolidBrush( PALETTEINDEX( GREY ) ) );
-		hpenHi = hPen[WHITE];
-		hpenLo = hPen[DKGREY];
-	}
-
-	PatBlt( hDC, 0, 0, rect.right, cyCap, PATCOPY );
-	PatBlt( hDC, 0, rect.bottom - cy, rect.right, rect.bottom, PATCOPY );
-	PatBlt( hDC, 0, cyCap, cx, h, PATCOPY );
-	PatBlt( hDC, rect.right - cx, cyCap, cx, h, PATCOPY );
-
-	--rect.bottom; --rect.right;
-	DrawShadowRect( hDC, &rect, hpenHi, hpenLo );
-	--cx; --cy;
-	rect.left += cx; rect.top += cy;
-	rect.right -= cx; rect.bottom -= cy;
-	if (!bBW) DrawShadowRect( hDC, &rect, hpenLo, hpenHi );
-
-	// get the title bar rect
-	++rect.left; ++rect.top; --rect.right;
-	rect.bottom = rect.top + cyCap - (cy + 2);
-	DrawShadowRect( hDC, &rect, hpenHi, hpenLo );
-	++rect.right; // for zoom/restore bitmap
-
-	hDCMem = CreateCompatibleDC( hDC );
-
-	hbm = LoadBitmap( NULL, INTRES(OBM_CLOSE) );
-	GetObject( hbm, sizeof(bm), (LPSTR)&bm );
-	bm.bmWidth /= 2; // they packed two images in here!
-	hbmOld = SelectObject( hDCMem, hbm );
-	BitBlt( hDC, rect.left, rect.top, bm.bmWidth, bm.bmHeight, hDCMem, 0, 0, SRCCOPY );
-	rect.left += bm.bmWidth;
-
-	if (IsZoomed( hWnd )) hbm = LoadBitmap( NULL, INTRES(OBM_RESTORE) );
-	else hbm = LoadBitmap( NULL, INTRES(OBM_ZOOM) );
-	GetObject( hbm, sizeof(bm), (LPSTR)&bm );
-	SelectObject( hDCMem, hbm );
-	rect.right -= bm.bmWidth;
-	BitBlt( hDC, rect.right, rect.top, bm.bmWidth, bm.bmHeight, hDCMem, 0, 0, SRCCOPY );
-
-	hbm = LoadBitmap( NULL, INTRES(OBM_REDUCE) );
-	GetObject( hbm, sizeof(bm), (LPSTR)&bm );
-	SelectObject( hDCMem, hbm );
-	rect.right -= bm.bmWidth;
-	BitBlt( hDC, rect.right, rect.top, bm.bmWidth, bm.bmHeight, hDCMem, 0, 0, SRCCOPY );
-
-	--rect.right;
-	DrawShadowRect( hDC, &rect, hpenHi, hpenLo );
-
-	// clip the score to the free titlebar area
-	++rect.left; ++rect.top;
-	rectScoreClip = rect;
-
-	DeleteObject( SelectObject( hDCMem, hbmOld ) );
-	DeleteObject( SelectObject( hDC, hbr ) );
-	DeleteDC( hDCMem );
-	ReleaseDC( hWnd, hDC );
-
-	// make sure the score gets redrawn
-	for (cx = 0; cx < nScoreLen; ++cx) szScore[cx] = '\0';
-}
-
-//
-// HyperoidWndProc - the main window proc for Hyperoid
-//
-
-LONG FAR PASCAL EXPORT HyperoidWndProc( HWND hWnd, unsigned message,
-										WORD wParam, LONG lParam )
-{
-	switch (message)
-	{
-	case WM_CREATE:
-		RestartHyperoid();
-		SetTimer( hWnd, DRAW_TIMER, nDrawDelay, NULL );
-		NCPaintHyperoid( hWnd );
-		break;
-
-	case WM_TIMER:
-		switch (wParam)
-		{
-		case DRAW_TIMER:
-			CheckScore( hWnd );
-			DrawObjects( hWnd );
-			return( 0 );
-
-		case RESTART_TIMER:
-			KillTimer( hWnd, RESTART_TIMER );
-			bRestart = FALSE;
-			RestartHyperoid();
-			return( 0 );
-		}
-		break;
-
-	case WM_SYSCOMMAND:
-		switch (wParam)
-		{
-		case IDM_NEW:
-			NewGame( hWnd );
-			break;
-
-		case IDM_ABOUT:
-			AboutHyperoid( hWnd );
-			break;
-
-		default:
-			return( DefWindowProc( hWnd, message, wParam, lParam ) );
-		}
-		break;
-
-	case WM_QUERYOPEN:
-		Panic( FALSE );
-		return( DefWindowProc( hWnd, message, wParam, lParam ) );
-
-	case WM_CHAR:
-		if (wParam == VK_ESCAPE) Panic( TRUE );
-		break;
-
-	case WM_SYSKEYDOWN:
-	case WM_SYSKEYUP:
-	case WM_SYSCHAR:
-		if (lParam & (1L<<29)) // alt key is down
-		{
-			return( DefWindowProc( hWnd, message, wParam, lParam ) );
-		}
-		switch (wParam)
-		{
-		case VK_ESCAPE:
-			if (message == WM_SYSKEYDOWN) Panic( TRUE );
-			return( 0 );
-		case VK_SPACE:
-		case VK_TAB:
-			return( 0 );
-		default:
-			return( DefWindowProc( hWnd, message, wParam, lParam ) );
-		}
-		break;
-
-	case WM_ERASEBKGND:
-		return( EraseHyperoidBkgnd( hWnd, (HDC)wParam ) );
-
-	case WM_NCACTIVATE:
-	case WM_NCPAINT:
-		NCPaintHyperoid( hWnd );
-		return( TRUE );
-
-	case WM_PAINT:
-		PaintHyperoid( hWnd );
-		break;
-
-	case WM_QUERYNEWPALETTE:
-		{
-			HDC hDC = GetDC( hWnd );
-			SelectPalette( hDC, hAppPalette, 0 );
-			RealizePalette( hDC );
-			ReleaseDC( hWnd, hDC );
-		}
-		return( TRUE );
-
-    case WM_DESTROY:
-		KillTimer( hWnd, DRAW_TIMER );
-		KillTimer( hWnd, RESTART_TIMER );
-		SaveHyperoidWindowPos( hWnd );
-		PostQuitMessage( 0 );
-        break;
-
-	default:
-		return( DefWindowProc( hWnd, message, wParam, lParam ) );
-    }
-	return( 0 );
-}
-
-//
-// InitHyperoid - initialize everything
-//
-
-BOOL NEAR PASCAL InitHyperoid( VOID )
-{
-	DOUBLE          dRad;
-	INT             nCnt;
-
-	// allocate the logical palette
-	hAppPalette = CreateHyperoidPalette();
-	if (!hAppPalette) return( FALSE );
-	for (nCnt = 0; nCnt < PALETTE_SIZE; ++nCnt)
-	{
-		hPen[nCnt] = CreatePen( PS_SOLID, 1, PALETTEINDEX( nCnt ) );
-		if (!hPen[nCnt]) return( FALSE );
-	}
-	for (nCnt = 0; nCnt < IDB_MAX; ++nCnt)
-	{
-		hBitmap[nCnt] = LoadBitmap( hAppInst, INTRES(IDB_blank + nCnt) );
-		if (!hPen[nCnt]) return( FALSE );
-	}
-
-	// seed the randomizer
-	dwSeed = GetCurrentTime();
-
-	// create the lookup table (should use resources)
+	/* create the lookup table */
 	for (nCnt = 0; nCnt < DEGREE_SIZE; ++nCnt)
 	{
 		dRad = nCnt * 6.2831855 / DEGREE_SIZE;
-		nCos[nCnt] = (INT)(DEGREE_MAX * cos( dRad ));
-		nSin[nCnt] = (INT)(DEGREE_MAX * sin( dRad ));
+		nCos[nCnt] = (int)(DEGREE_MAX * cos( dRad ));
+		nSin[nCnt] = (int)(DEGREE_MAX * sin( dRad ));
 	}
 
-	// get the initialization file info
-	GetHyperoidIni();
-
-	// allocate all objects as free
+	/* allocate all objects as free */
 	for (nCnt = 0; nCnt < MAX_OBJS; ++nCnt)
 		AddHeadObj( &FreeList, &(Obj[nCnt]) );
 
-	// set up the player
+	/* set up the player */
 	npPlayer = RemHeadObj( &FreeList );
 	npPlayer->byPts = DIM(Player);
 	npPlayer->nMass = 256;
 	for (nCnt = 0; nCnt < DIM(Player); ++nCnt)
 		npPlayer->Pts[nCnt] = Player[nCnt];
-
-	return( TRUE );
 }
 
-//
-// ExitHyperoid - quit the damn game already!
-//
 
-VOID NEAR PASCAL ExitHyperoid( VOID )
+void start_timer(void)
 {
-	INT             nCnt;
+struct sigaction sa;
+struct itimerval itv;
+int tmp=1000000/20;	/* 20 ints/sec */
 
-	if (hAppPalette) DeleteObject( hAppPalette );
-	for (nCnt = 0; nCnt < PALETTE_SIZE; ++nCnt)
-		if (hPen[nCnt]) DeleteObject( hPen[nCnt] );
-	for (nCnt = 0; nCnt < IDB_MAX; ++nCnt)
-		if (hBitmap[nCnt]) DeleteObject( hBitmap[nCnt] );
+sigemptyset(&sa.sa_mask);
+sa.sa_handler=sighandler;
+sa.sa_flags=SA_RESTART;
+sigaction(SIGALRM,&sa,NULL);
+
+itv.it_value.tv_sec=itv.it_interval.tv_sec=tmp/1000000;
+itv.it_value.tv_usec=itv.it_interval.tv_usec=tmp%1000000;
+setitimer(ITIMER_REAL,&itv,NULL);
 }
 
-//
-// WinMain - everybody has to have one
-//
 
-INT FAR PASCAL WinMain( HANDLE hInstance, HANDLE hPrevInstance,
-						LPSTR lpszCmdLine, INT nCmdShow )
+void wait_for_timer(void)
 {
-	MSG         msg;
+sigset_t mask,oldmask;
 
-	hAppInst = hInstance;
-	if (!hPrevInstance)
-	{
-		// create the class if we're first
-		if (!CreateHyperoidClass()) return( FALSE );
-	}
-	else
-	{
-		// Copy data from previous instance
-		GetInstanceData( hPrevInstance, (PSTR)szAppName, sizeof(szAppName) );
-	}
-	if (!InitHyperoid()) goto Abort; // I LOVE GOTOS! REALLY I DO!
-	hAppWnd = CreateHyperoidWindow( lpszCmdLine, nCmdShow );
-	if (!hAppWnd) return( FALSE );
+sigemptyset(&mask);
+sigaddset(&mask,SIGALRM);
 
-	while (GetMessage( &msg, NULL, 0, 0 ))
-	{
-		TranslateMessage( &msg );
-		DispatchMessage( &msg );
-	}
+/* The procmask stuff is to avoid a race condition (not actually
+ * a big deal, would just rarely lose an interrupt, but FWIW...).
+ */
+sigprocmask(SIG_BLOCK,&mask,&oldmask);
+if(!timer_flag)
+  while(!timer_flag)
+    sigsuspend(&oldmask);
+sigprocmask(SIG_UNBLOCK,&mask,NULL);
 
-Abort:
-	ExitHyperoid();
-	return( msg.wParam );
+timer_flag=0;
+}
+
+
+void stop_sound(void)
+{
+#ifdef DO_SOUND
+queuesam(KILL_SNDSERV,0);
+wait(NULL);
+#endif
+}
+
+
+int main(int argc,char *argv[])
+{
+int quit=0;
+
+graphics_init(argc,argv,palrgb);
+
+start_sound();
+
+InitHyperoid();
+RestartHyperoid();
+
+atexit(stop_sound);
+
+start_timer();
+
+while(!quit)
+  {
+  wait_for_timer();
+  
+  graphics_update();
+  CheckScore();
+  DrawObjects();
+  
+  if(bRestart)
+    {
+    restart_timer_count--;
+    if(restart_timer_count==0)
+      {
+      bRestart = FALSE;
+      RestartHyperoid();
+      }
+    }
+  
+  if(IsKeyDown(KEY_F1))
+    NewGame();
+  
+  if(IsKeyDown(KEY_ESC))
+    quit=1;
+  }
+
+/* don't rely on it getting here, GTK+ ver may exit alternative way */
+
+graphics_exit();
+exit(0);
 }
