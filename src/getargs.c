@@ -21,8 +21,6 @@
  */
 
 #include "config.h"
-RCSID("$Id: getargs.c,v 1.4 2000/10/25 07:55:34 neotron Exp $");
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

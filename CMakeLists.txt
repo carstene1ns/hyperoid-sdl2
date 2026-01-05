@@ -25,7 +25,6 @@ add_executable(sdlroids
 target_compile_options(sdlroids PRIVATE -Wall -Wunused)
 target_compile_definitions(sdlroids PRIVATE DATADIR="/usr/share/sdlroids") # TODO
 
-find_package(SDL REQUIRED)
-find_package(SDL_mixer REQUIRED)
-target_include_directories(sdlroids PRIVATE ${SDL_INCLUDE_DIRS} ${SDL_MIXER_INCLUDE_DIRS})
-target_link_libraries(sdlroids PRIVATE ${SDL_LIBRARIES} ${SDL_MIXER_LIBRARIES} m)
+find_package(SDL2 REQUIRED)
+find_package(SDL2_mixer REQUIRED)
+target_link_libraries(sdlroids PRIVATE SDL2::SDL2 SDL2_mixer::SDL2_mixer m)

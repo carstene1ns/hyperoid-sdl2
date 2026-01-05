@@ -21,7 +21,6 @@
  */
 
 #include "config.h"
-RCSID("$Id: rand.c,v 1.2 2000/07/17 02:22:16 neotron Exp $");
 
 static unsigned long RandSeed1 = 0x5c2582a4;
 static unsigned long RandSeed2 = 0x64dff8ca;

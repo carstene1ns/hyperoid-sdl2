@@ -21,8 +21,6 @@
  */
 
 #include "config.h"
-RCSID("$Id: hyperoid.c,v 1.15 2001/03/27 23:23:52 neotron Exp $");
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -265,7 +263,7 @@ void DeleteBadguys( LIST *npList )
 
 void NewGame( RESTART_MODE restart )
 {
-  lock_graphics();
+  clear_graphics();
   game_done = 0;
   me.Shield.byColor = BLACK;
   Explode( me.Player );
@@ -277,7 +275,6 @@ void NewGame( RESTART_MODE restart )
   DeleteBadguys( &SwarmerList );
   DeleteBadguys( &HunterList );
   nBadGuys=0;
-  unlock_graphics();
 }
 
 /* PrintPlayerMessage - show the player a status message */
@@ -1408,7 +1405,7 @@ void DrawPlayer( void )
 void DrawObjects( void )
 {
   /* move and draw things (I don't think the order is important...) */
-  lock_graphics();
+  clear_graphics();
   DrawPlayer();
   DrawFlames();
   DrawShots();
@@ -1419,7 +1416,6 @@ void DrawObjects( void )
   DrawHunterShots();
   DrawBonuses();
   DrawLetters();
-  unlock_graphics();
   /* (...but I'm not changing it!!! :-) */
 }
 
@@ -1584,10 +1580,8 @@ int main(int argc,char *argv[])
     
     else if((++framecount) >= ARG_BENCH)
       quit = 1;
-    if(!bPaused) {
-      DrawObjects();
-      CheckScore();
-    }
+    DrawObjects();
+    CheckScore();
     update_graphics();
     if(bRestart)
     {

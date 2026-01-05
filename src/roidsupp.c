@@ -21,8 +21,6 @@
  */
 
 #include "config.h"
-RCSID("$Id: roidsupp.c,v 1.5 2001/03/23 23:54:23 neotron Exp $");
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

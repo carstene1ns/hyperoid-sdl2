@@ -21,8 +21,6 @@
  */
 
 #include "config.h"
-RCSID("$Id: sdlsound.c,v 1.10 2001/03/24 04:04:06 neotron Exp $");
-
 #include "SDL_audio.h"
 #include "sdlsound.h"
 #include "misc.h"

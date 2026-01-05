@@ -32,6 +32,5 @@ extern void update_graphics(void);
 extern void exit_graphics(void);
 extern void ResetRefreshCoords(void);
 extern void RedrawObject(void);
-extern void lock_graphics(void);
-extern void unlock_graphics(void);
+extern void clear_graphics(void);
 
